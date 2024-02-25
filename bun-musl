@@ -31,17 +31,26 @@ fi
 
 tmpdir=$(mktemp -d)
 
+if [ "$(uname -m)" = 'aarch64' ]; then
+    libname=ld-linux-aarch64.so.1
+elif [ "$(uname -m)" = 'x86_64' ]; then
+    libname=ld-linux-x86-64.so.2
+else
+    echo "unsupported arch $(uname -m)"
+    exit 1
+fi
+
 prepatch() {
     echo "Downloading void linux glibc rootfs"
     cd $tmpdir
-    curl https://repo-default.voidlinux.org/live/current/void-x86_64-ROOTFS-20230628.tar.xz --output void.tar.xz
+    curl https://repo-default.voidlinux.org/live/current/void-$(uname -m)-ROOTFS-20230628.tar.xz --output void.tar.xz
     echo "Downloaded void linux glibc rootfs"
 
     echo "Extracting libraries from the archive"
-    tar -xf void.tar.xz ./usr/lib/libdl.so.2 ./usr/lib/libm.so.6 ./usr/lib/libpthread.so.0 ./usr/lib/libc.so.6 ./usr/lib/ld-linux-x86-64.so.2
+    tar -xf void.tar.xz ./usr/lib/libdl.so.2 ./usr/lib/libm.so.6 ./usr/lib/libpthread.so.0 ./usr/lib/libc.so.6 ./usr/lib/$libname
     mkdir -p $HOME/.bun/libs/
     cp ./usr/lib/* $HOME/.bun/libs/
-    cp ./usr/lib/ld-linux-x86-64.so.2 $HOME/.bun/libs/
+    cp ./usr/lib/$libname $HOME/.bun/libs/
     echo "Extracted ${libs[*]}"
 }
 
@@ -50,7 +59,7 @@ patchbun() {
     for lib in "${libs[@]}"; do
         patchelf --replace-needed "$lib" "$HOME/.bun/libs/$lib" $HOME/.bun/bin/bun 
     done
-    patchelf --set-interpreter $HOME/.bun/libs/ld-linux-x86-64.so.2 $HOME/.bun/bin/bun
+    patchelf --set-interpreter $HOME/.bun/libs/$libname $HOME/.bun/bin/bun
     echo "Done patching"
 }
 
